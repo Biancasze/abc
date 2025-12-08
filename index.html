@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>東京之旅</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              DEFAULT: '#38bdf8',
+              dark: '#0ea5e9'
+            },
+            accent: '#facc15',
+            timeline: '#60a5fa',
+            noteOrange: '#f97316'
+          },
+          borderRadius: {
+            card: '18px',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: #e5f2ff;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+  <div id="app"
+       class="relative w-full max-w-sm h-[780px] bg-white rounded-3xl shadow-xl flex flex-col overflow-hidden border border-slate-200">
+
+    <!-- Header：東京之旅 + icon tabs -->
+    <header class="relative">
+      <div class="px-4 pt-5 pb-4 bg-gradient-to-r from-primary to-primary-dark text-white rounded-t-3xl">
+        <div class="flex items-start justify-between">
+          <!-- 左邊：標題 -->
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">✈️</span>
+              <div>
+                <p class="text-sm font-bold tracking-wide">東京之旅</p>
+                <p class="text-xl font-extrabold leading-tight">Tokyo</p>
+              </div>
+            </div>
+            <p class="text-[11px] tracking-[0.18em] uppercase text-white/80 font-medium">
+              Dec 28 – Jan 03, 2026
+            </p>
+          </div>
+
+          <!-- 右邊：頂部 icon tabs -->
+          <div class="flex flex-col items-end gap-2">
+            <!-- 匯率小字 -->
+            <div class="text-[10px] text-white/90 text-right leading-snug">
+              <p>{{ todayString }}</p>
+              <p>1 JPY ≈ {{ jpyRate }} HKD</p>
+            </div>
+
+            <!-- 膠囊 tab -->
+            <div class="bg-white/10 rounded-2xl px-1 py-1 flex items-center gap-1 shadow-lg">
+              <button
+                class="w-9 h-9 rounded-xl flex items-center justify-center text-xs transition"
+                :class="activeTab === 'schedule'
+                  ? 'bg-white text-primary shadow-md'
+                  : 'bg-transparent text-white/85'"
+                @click="activeTab = 'schedule'"
+              >
+                <span class="text-lg">📅</span>
+              </button>
+              <button
+                class="w-9 h-9 rounded-xl flex items-center justify-center text-xs transition"
+                :class="activeTab === 'expense'
+                  ? 'bg-white text-primary shadow-md'
+                  : 'bg-transparent text-white/85'"
+                @click="activeTab = 'expense'"
+              >
+                <span class="text-lg">💰</span>
+              </button>
+              <button
+                class="w-9 h-9 rounded-xl flex items-center justify-center text-xs transition"
+                :class="activeTab === 'todo'
+                  ? 'bg-white text-primary shadow-md'
+                  : 'bg-transparent text-white/85'"
+                @click="activeTab = 'todo'"
+              >
+                <span class="text-lg">📋</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 頂部支出統計：只在記帳頁顯示 -->
+      <div class="px-4 -mb-2" v-if="activeTab === 'expense'">
+        <div class="mt-2 bg-white/95 rounded-2xl shadow-md border border-slate-100 text-xs overflow-hidden">
+          <div class="px-3 py-2 border-b border-slate-100 flex items-baseline justify-between">
+            <p class="text-[11px] text-slate-500 font-medium">總支出（換算 HKD）</p>
+            <p class="text-sm font-bold text-slate-900">
+              {{ totalExpenseHKD.toFixed(2) }} HKD
+            </p>
+          </div>
+          <div class="flex">
+            <div class="flex-1 px-3 py-2 border-r border-slate-100">
+              <p class="text-[11px] text-slate-500 font-medium">Kenneth 已付</p>
+              <p class="text-sm font-bold text-slate-900">
+                {{ kennethTotalHKD.toFixed(2) }} HKD
+              </p>
+            </div>
+            <div class="flex-1 px-3 py-2">
+              <p class="text-[11px] text-slate-500 font-medium">Bianca 已付</p>
+              <p class="text-sm font-bold text-slate-900">
+                {{ biancaTotalHKD.toFixed(2) }} HKD
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 內容 -->
+    <main class="flex-1 overflow-y-auto px-4 py-3 bg-slate-50">
+      <!-- 行程表 Tab -->
+      <section v-if="activeTab === 'schedule'" class="space-y-3">
+        <h2 class="text-sm font-semibold text-slate-700 mb-1">行程表</h2>
+
+        <!-- 橫向日曆 -->
+        <div class="mb-3">
+          <p class="text-[11px] text-slate-500 mb-1 font-medium">
+            2025-12-28 ～ 2026-01-03（東京）
+          </p>
+          <div class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar">
+            <button
+              v-for="(day, index) in tripDays"
+              :key="day.dateKey"
+              class="flex-none w-16 h-18 rounded-2xl text-center text-xs flex flex-col items-center justify-center transition border font-medium"
+              :class="day.dateKey === selectedDate
+                ? 'bg-white text-primary border-white shadow-md'
+                : 'bg-primary/70 text-white border-primary/40'"
+              @click="selectedDate = day.dateKey"
+            >
+              <span class="text-[11px] opacity-95">
+                {{ day.label }}
+              </span>
+              <span class="text-sm font-bold mt-0.5">
+                Day {{ index + 1 }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 每日 header + 天氣列 -->
+        <div class="bg-white rounded-card shadow-md p-3 border border-slate-100 mb-3">
+          <div class="flex items-center justify-between">
+            <div class="w-2/3 pr-2">
+              <p class="text-base font-bold text-slate-900 leading-tight">
+                {{ dayHeaderTitle }}
+              </p>
+              <input
+                v-model="weatherByDate[selectedDate].description"
+                type="text"
+                class="mt-0.5 w-full text-[11px] font-normal text-slate-600 bg-transparent border-b border-slate-200 focus:outline-none focus:border-primary/60"
+                placeholder="輸入這一天的描述，例如：池袋＆新宿"
+              />
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-2xl" v-if="currentWeather.icon">
+                {{ currentWeather.icon }}
+              </span>
+              <div class="text-right">
+                <p class="text-sm font-bold text-slate-900" v-if="currentWeather.tempHigh || currentWeather.tempLow">
+                  <span v-if="currentWeather.tempHigh">{{ currentWeather.tempHigh }}</span>
+                  <span v-if="currentWeather.tempHigh && currentWeather.tempLow"> / </span>
+                  <span v-if="currentWeather.tempLow">{{ currentWeather.tempLow }}</span>
+                </p>
+                <p class="text-[11px] text-slate-400 font-normal" v-if="currentWeather.location">
+                  {{ currentWeather.location }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- timeline + 行程卡（每條行程外層白底方圓框） -->
+        <div v-if="sortedSchedulesForSelected.length"
+             class="relative pl-6 space-y-4">
+          <div class="absolute left-3 top-0 bottom-0 w-[2px] bg-gradient-to-b from-primary/50 to-primary/5 pointer-events-none"></div>
+
+          <div v-for="(item, index) in sortedSchedulesForSelected" :key="item.id"
+               class="relative flex items-stretch gap-3 rounded-3xl bg-white shadow-md px-3 py-3 border border-slate-100">
+            <div class="absolute -left-[7px] top-7 w-3 h-3 rounded-full border-2 border-white bg-timeline shadow-sm"></div>
+
+            <!-- 時間方塊 + 類別 pill -->
+            <div class="w-22 flex flex-col items-center gap-2">
+              <div class="w-20 text-center rounded-2xl bg-white border border-slate-200 px-3 py-2 flex flex-col items-center justify-center shadow-sm">
+                <p class="text-[11px] text-slate-400 mb-1 font-medium">
+                  {{ timePeriodLabel(item.time) }}
+                </p>
+                <p class="text-2xl font-semibold text-slate-900 leading-tight tracking-wide">
+                  {{ formattedTime(item.time) }}
+                </p>
+              </div>
+
+              <div class="w-20">
+                <select
+                  v-model="item.category"
+                  @change="updateScheduleCategory(item.id, item.category)"
+                  class="w-full text-[11px] px-2 py-1.5 rounded-2xl border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary/40 appearance-none"
+                >
+                  <option value="">未分類</option>
+                  <option value="transport">🚄 交通</option>
+                  <option value="sightseeing">⛩️ 景點</option>
+                  <option value="food">🍢 美食</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 行程卡：主標＋橙色 i 備註＋地圖按鈕 -->
+            <div class="flex-1">
+              <div class="cursor-pointer" @click="openEditSchedule(item)">
+                <!-- 主標：地點（可自行改成 text-base / text-lg 放大） -->
+                <p class="text-base font-semibold text-slate-900 mb-1 truncate" v-if="item.location">
+                  {{ item.location }}
+                </p>
+                <p class="text-base font-semibold text-slate-900 mb-1 truncate" v-else>
+                  未命名地點
+                </p>
+
+                <!-- 橙色 i 備註（i 比文字小一點） -->
+                <div v-if="item.note" class="mt-0.5 flex items-start gap-1">
+                  <span
+                    class="mt-[3px] inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-noteOrange text-[9px] text-noteOrange font-semibold leading-none">
+                    i
+                  </span>
+                  <p class="text-[11px] text-noteOrange leading-snug line-clamp-2">
+                    {{ item.note }}
+                  </p>
+                </div>
+
+                <!-- 地圖按鈕：在備註下面，開新分頁 -->
+                <div v-if="item.mapUrl" class="mt-2">
+                  <button
+                    class="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-primary/5 text-primary border border-primary/20 font-medium"
+                    @click.stop="openMapUrl(item.mapUrl)">
+                    地圖
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-[11px] text-slate-400 text-center mt-4 font-normal">
+          這一天還沒有行程，按右下角「＋」新增。
+        </p>
+      </section>
+
+      <!-- 記帳 Tab -->
+      <section v-if="activeTab === 'expense'" class="space-y-3">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-sm font-semibold text-slate-700">旅行記帳</h2>
+          <div class="flex items-center gap-1 text-[11px]">
+            <span class="text-slate-500 font-medium">JPY → HKD 匯率：</span>
+            <input v-model.number="jpyRate"
+                   type="number" step="0.0001" min="0"
+                   class="w-20 text-[11px] px-2 py-1 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-primary/40">
+          </div>
+        </div>
+
+        <div class="bg-white rounded-card shadow-md p-3 border border-slate-100 space-y-2">
+          <h3 class="text-xs font-semibold text-slate-600 mb-1">新增支出</h3>
+          <div class="flex gap-2">
+            <input v-model.number="newExpense.amount" type="number" min="0" step="0.01"
+                   placeholder="金額"
+                   class="w-1/3 text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+            <select v-model="newExpense.currency"
+                    class="w-1/4 text-xs px-2 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+              <option value="" disabled>幣別</option>
+              <option value="JPY">JPY</option>
+              <option value="HKD">HKD</option>
+            </select>
+            <select v-model="newExpense.paidBy"
+                    class="flex-1 text-xs px-2 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+              <option value="" disabled>誰付錢</option>
+              <option value="kenneth">Kenneth</option>
+              <option value="bianca">Bianca</option>
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <select v-model="newExpense.category"
+                    class="w-1/2 text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40">
+              <option value="" disabled>類別</option>
+              <option>交通</option>
+              <option>餐飲</option>
+              <option>住宿</option>
+              <option>購物</option>
+              <option>門票 / 活動</option>
+              <option>其他</option>
+            </select>
+            <input v-model="newExpense.date"
+                   type="date"
+                   class="flex-1 text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+          </div>
+          <input v-model="newExpense.note" type="text" placeholder="備註（例如：晚餐、地鐵、禮物）"
+                 class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+          <button @click="addExpense"
+                  class="w-full text-xs py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition disabled:opacity-50"
+                  :disabled="!canAddExpense">
+            加入支出
+          </button>
+        </div>
+
+        <div v-if="expenses.length" class="space-y-2">
+          <div v-for="(exp, index) in expenses" :key="index"
+               class="bg-white rounded-card shadow-md p-3 flex items-start justify-between border border-slate-100">
+            <div class="flex-1 pr-2">
+              <div class="flex items-center justify-between mb-0.5">
+                <p class="text-xs font-semibold text-slate-800">
+                  {{ exp.category || '其他' }} ·
+                  <span v-if="exp.paidBy === 'kenneth'">Kenneth 付</span>
+                  <span v-else-if="exp.paidBy === 'bianca'">Bianca 付</span>
+                  <span v-else>未知</span>
+                </p>
+                <p class="text-[11px] text-slate-400" v-if="exp.date">
+                  {{ exp.date }}
+                </p>
+              </div>
+              <p class="text-[11px] text-slate-600" v-if="exp.note">
+                {{ exp.note }}
+              </p>
+              <p class="text-[11px] text-emerald-600 mt-1" v-if="exp.currency === 'JPY'">
+                約 {{ (exp.amount * jpyRate).toFixed(2) }} HKD
+              </p>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-semibold text-slate-900">
+                {{ exp.amount.toFixed(0) }} {{ exp.currency }}
+              </p>
+              <button class="text-[10px] text-red-400 hover:text-red-500 mt-1"
+                      @click="removeExpense(index)">
+                刪除
+              </button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-[11px] text-slate-400 text-center mt-4">
+          還未有支出紀錄，試試新增一筆。
+        </p>
+      </section>
+
+      <!-- 清單 Tab -->
+      <section v-if="activeTab === 'todo'" class="space-y-3">
+        <h2 class="text-sm font-semibold text-slate-700 mb-1">購物 / 打包清單</h2>
+
+        <div class="bg白 rounded-card shadow-md p-3 border border-slate-100 space-y-2">
+          <div class="flex gap-2">
+            <input v-model="newTodoText" type="text" placeholder="例如：護照、轉換插頭、給彼此的小禮物"
+                   class="flex-1 text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+            <button @click="addTodo"
+                    class="text-xs px-3 py-2 rounded-xl bg-primary text-white font-semibold hover:bg-primary-dark transition disabled:opacity-50"
+                    :disabled="!newTodoText">
+              加入
+            </button>
+          </div>
+        </div>
+
+        <div v-if="todos.length" class="space-y-2">
+          <div v-for="(todo, index) in todos" :key="index"
+               class="bg-white rounded-card shadow-md p-2.5 border border-slate-100 flex items-center">
+            <input type="checkbox" v-model="todo.done"
+                   class="w-4 h-4 text-primary rounded border-slate-300 mr-2">
+            <div class="flex-1">
+              <p class="text-xs"
+                 :class="todo.done ? 'line-through text-slate-400' : 'text-slate-800'">
+                {{ todo.text }}
+              </p>
+            </div>
+            <button class="text-[10px] text-red-400 hover:text-red-500 px-1"
+                    @click="removeTodo(index)">
+              刪除
+            </button>
+          </div>
+        </div>
+        <p v-else class="text-[11px] text-slate-400 text-center mt-4">
+          還沒有清單項目，先加幾樣要帶或要買的東西。
+        </p>
+      </section>
+    </main>
+
+    <!-- 浮動 + 按鈕：只在行程頁 -->
+    <button v-if="activeTab === 'schedule'"
+            class="absolute bottom-4 right-5 w-12 h-12 rounded-full bg-accent text-white shadow-lg flex items-center justify-center text-2xl"
+            @click="openNewSchedule">
+      +
+    </button>
+
+    <!-- 行程新增 / 編輯彈窗 -->
+    <div v-if="showScheduleModal"
+         class="absolute inset-0 bg-black/30 flex items-center justify-center z-20">
+      <div class="w-[90%] bg-white rounded-2xl shadow-xl p-4 text-xs">
+        <h3 class="text-sm font-semibold text-slate-800 mb-2">
+          {{ editingSchedule && editingSchedule.id ? '編輯行程' : '新增行程' }}
+        </h3>
+        <div class="space-y-2">
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <p class="text-[11px] text-slate-500 mb-1">日期</p>
+              <input v-model="editingSchedule.date"
+                     type="date"
+                     class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+            </div>
+            <div class="w-24">
+              <p class="text-[11px] text-slate-500 mb-1">時間</p>
+              <input v-model="editingSchedule.time"
+                     type="time"
+                     class="w-full text-xs px-2 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+            </div>
+          </div>
+
+          <div>
+            <p class="text-[11px] text-slate-500 mb-1">地點名稱</p>
+            <input v-model="editingSchedule.location" type="text"
+                   placeholder="例如：成田機場、淺草寺"
+                   class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+          </div>
+
+          <div>
+            <p class="text-[11px] text-slate-500 mb-1">Google Maps 連結（可選）</p>
+            <input v-model="editingSchedule.mapUrl" type="text"
+                   placeholder="貼上 Google Maps 分享連結"
+                   class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40">
+          </div>
+
+          <div>
+            <p class="text-[11px] text-slate-500 mb-1">備註</p>
+            <textarea v-model="editingSchedule.note" rows="2"
+                      class="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      placeholder="航班編號、交通方式等等"></textarea>
+          </div>
+
+          <div>
+            <p class="text-[11px] text-slate-500 mb-1">類別（可選）</p>
+            <select
+              v-model="editingSchedule.category"
+              class="w-full text-[11px] px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              <option value="">未分類</option>
+              <option value="transport">🚄 交通</option>
+              <option value="sightseeing">⛩️ 景點</option>
+              <option value="food">🍢 美食</option>
+            </select>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <button class="text-[11px] text-slate-500 px-2 py-1"
+                    @click="closeScheduleModal">
+              取消
+            </button>
+            <div class="flex items-center gap-2">
+              <button v-if="editingSchedule && editingSchedule.id"
+                      class="text-[11px] text-red-500 px-3 py-1 rounded-xl border border-red-200"
+                      @click="deleteSchedule(editingSchedule.id)">
+                刪除
+              </button>
+              <button class="text-[11px] text-white px-4 py-1.5 rounded-xl bg-primary hover:bg-primary-dark font-semibold disabled:opacity-50"
+                      :disabled="!editingSchedule.date"
+                      @click="saveSchedule">
+                儲存
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Vue App -->
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          activeTab: 'schedule',
+          jpyRate: 0.053,
+
+          tripDays: [
+            { dateKey: '2025-12-28', label: '12/28', weekday: '日' },
+            { dateKey: '2025-12-29', label: '12/29', weekday: '一' },
+            { dateKey: '2025-12-30', label: '12/30', weekday: '二' },
+            { dateKey: '2025-12-31', label: '12/31', weekday: '三' },
+            { dateKey: '2026-01-01', label: '01/01', weekday: '四' },
+            { dateKey: '2026-01-02', label: '01/02', weekday: '五' },
+            { dateKey: '2026-01-03', label: '01/03', weekday: '六' },
+          ],
+
+          // 每日天氣：接近東京 12 月底～1 月初平均高低溫[web:111][web:113]
+          weatherByDate: {
+            '2025-12-28': {
+              icon: '🌤️',
+              description: '池袋＆新宿',
+              location: '東京',
+              tempHigh: '10°',
+              tempLow: '3°'
+            },
+            '2025-12-29': {
+              icon: '🌧️',
+              description: '可能有雨，記得帶傘',
+              location: '東京',
+              tempHigh: '11°',
+              tempLow: '4°'
+            },
+            '2025-12-30': {
+              icon: '☁️',
+              description: '多雲偶晴',
+              location: '東京',
+              tempHigh: '12°',
+              tempLow: '4°'
+            },
+            '2025-12-31': {
+              icon: '❄️',
+              description: '跨年前一天，可以安排郊外',
+              location: '東京',
+              tempHigh: '9°',
+              tempLow: '3°'
+            },
+            '2026-01-01': {
+              icon: '🌤️',
+              description: '新年快樂，小心保暖',
+              location: '東京',
+              tempHigh: '9°',
+              tempLow: '2°'
+            },
+            '2026-01-02': {
+              icon: '🌤️',
+              description: '適合逛街的一天',
+              location: '東京',
+              tempHigh: '8°',
+              tempLow: '3°'
+            },
+            '2026-01-03': {
+              icon: '☁️',
+              description: '回程日，留意交通',
+              location: '東京',
+              tempHigh: '8°',
+              tempLow: '3°'
+            }
+          },
+
+          selectedDate: '2025-12-28',
+          schedules: [],
+          scheduleCounter: 1,
+          showScheduleModal: false,
+          editingSchedule: null,
+
+          expenses: [],
+          newExpense: {
+            amount: null,
+            currency: '',
+            paidBy: '',
+            category: '',
+            date: '',
+            note: ''
+          },
+          todos: [],
+          newTodoText: ''
+        };
+      },
+      mounted() {
+        // 進頁面時從 localStorage 還原資料[web:172][web:176]
+        const s = localStorage.getItem('tokyoTrip_schedules');
+        const e = localStorage.getItem('tokyoTrip_expenses');
+        const t = localStorage.getItem('tokyoTrip_todos');
+        if (s) this.schedules = JSON.parse(s);
+        if (e) this.expenses = JSON.parse(e);
+        if (t) this.todos = JSON.parse(t);
+      },
+      computed: {
+        todayString() {
+          const d = new Date();
+          const y = d.getFullYear();
+          const m = (d.getMonth() + 1).toString().padStart(2, '0');
+          const day = d.getDate().toString().padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        },
+        dayHeaderTitle() {
+          const day = this.tripDays.find(d => d.dateKey === this.selectedDate);
+          if (!day) return this.selectedDate;
+          return `${day.label} (${day.weekday})`;
+        },
+        currentWeather() {
+          return this.weatherByDate[this.selectedDate] || {};
+        },
+        sortedSchedulesForSelected() {
+          const list = this.schedules.filter(s => s.date === this.selectedDate);
+          return list.sort((a, b) => {
+            const ta = a.time || '24:59';
+            const tb = b.time || '24:59';
+            return ta.localeCompare(tb);
+          });
+        },
+        canAddExpense() {
+          return this.newExpense.amount &&
+                 this.newExpense.currency &&
+                 this.newExpense.paidBy &&
+                 this.newExpense.category &&
+                 this.newExpense.date;
+        },
+        totalExpenseHKD() {
+          return this.expenses.reduce((sum, e) => {
+            if (!e.amount) return sum;
+            const base = e.currency === 'JPY' ? e.amount * this.jpyRate : e.amount;
+            return sum + base;
+          }, 0);
+        },
+        kennethTotalHKD() {
+          return this.expenses.reduce((sum, e) => {
+            if (e.paidBy !== 'kenneth') return sum;
+            const base = e.currency === 'JPY' ? e.amount * this.jpyRate : e.amount;
+            return sum + base;
+          }, 0);
+        },
+        biancaTotalHKD() {
+          return this.expenses.reduce((sum, e) => {
+            if (e.paidBy !== 'bianca') return sum;
+            const base = e.currency === 'JPY' ? e.amount * this.jpyRate : e.amount;
+            return sum + base;
+          }, 0);
+        }
+      },
+      methods: {
+        saveAll() {
+          localStorage.setItem('tokyoTrip_schedules', JSON.stringify(this.schedules));
+          localStorage.setItem('tokyoTrip_expenses', JSON.stringify(this.expenses));
+          localStorage.setItem('tokyoTrip_todos', JSON.stringify(this.todos));
+        },
+        formattedTime(t) {
+          return t || '--:--';
+        },
+        timePeriodLabel(t) {
+          if (!t) return '未設定';
+          const [h] = t.split(':').map(Number);
+          if (h < 12) return '上午';
+          if (h < 18) return '下午';
+          return '晚上';
+        },
+        openNewSchedule() {
+          this.editingSchedule = {
+            id: null,
+            date: this.selectedDate,
+            time: '',
+            location: '',
+            mapUrl: '',
+            note: '',
+            category: ''
+          };
+          this.showScheduleModal = true;
+        },
+        openEditSchedule(item) {
+          this.editingSchedule = { ...item };
+          this.showScheduleModal = true;
+        },
+        closeScheduleModal() {
+          this.showScheduleModal = false;
+          this.editingSchedule = null;
+        },
+        saveSchedule() {
+          if (!this.editingSchedule.date) return;
+          if (this.editingSchedule.id == null) {
+            const newItem = {
+              ...this.editingSchedule,
+              id: this.scheduleCounter++
+            };
+            this.schedules.push(newItem);
+          } else {
+            const idx = this.schedules.findIndex(s => s.id === this.editingSchedule.id);
+            if (idx !== -1) {
+              this.schedules[idx] = { ...this.editingSchedule };
+            }
+          }
+          this.selectedDate = this.editingSchedule.date;
+          this.closeScheduleModal();
+          this.saveAll();
+        },
+        deleteSchedule(id) {
+          this.schedules = this.schedules.filter(s => s.id !== id);
+          this.closeScheduleModal();
+          this.saveAll();
+        },
+        updateScheduleCategory(id, category) {
+          const idx = this.schedules.findIndex(s => s.id === id);
+          if (idx !== -1) {
+            this.schedules[idx].category = category;
+            this.saveAll();
+          }
+        },
+        openInMapsByQuery(query) {
+          if (!query) return;
+          const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+          window.open(url, '_blank');
+        },
+        openMapUrl(url) {
+          if (!url) return;
+          window.open(url, '_blank');
+        },
+        addExpense() {
+          if (!this.canAddExpense) return;
+          this.expenses.push({
+            ...this.newExpense,
+            amount: Number(this.newExpense.amount)
+          });
+          this.newExpense = {
+            amount: null,
+            currency: '',
+            paidBy: '',
+            category: '',
+            date: '',
+            note: ''
+          };
+          this.saveAll();
+        },
+        removeExpense(index) {
+          this.expenses.splice(index, 1);
+          this.saveAll();
+        },
+        addTodo() {
+          if (!this.newTodoText) return;
+          this.todos.push({ text: this.newTodoText, done: false });
+          this.newTodoText = '';
+          this.saveAll();
+        },
+        removeTodo(index) {
+          this.todos.splice(index, 1);
+          this.saveAll();
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
